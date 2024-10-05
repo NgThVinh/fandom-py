@@ -234,6 +234,11 @@ class FandomPage(object):
             section_text = ""
             current_level = header_level
           #elif next_node.name == 'div':
+          elif next_node.has_attr('class') and 'fandom-table' in next_node['class']: # Fandom Table
+            text = [row.split('\n') for row in next_node.get_text().split("\n\n")]
+            text = list(map(lambda x: ','.join(filter(len, x)), text))
+            text = '\n'.join(text)
+            section_text += "\n"+text
           elif (not next_node.has_attr('class')) or (next_node['class'][0] != "printfooter"):
             section_text += "\n"+next_node.get_text()
         next_node = next_node.nextSibling
