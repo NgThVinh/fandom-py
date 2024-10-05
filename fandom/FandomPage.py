@@ -36,7 +36,7 @@ class FandomPage(object):
 
     self.wiki = wiki
 
-    self.iggnore_elements = []
+    self.ignore_elements = []
     try:
         self.__load(redirect=redirect, preload=preload)
     except AttributeError:
@@ -234,6 +234,7 @@ class FandomPage(object):
           if next_node.name[0] == 'h':
             level_tree[-1]['content'] = section_text
             header = next_node.text
+            print(next_node.name[1])
             header_level = int(next_node.name[1])
             if header_level > current_level:
               level_dif = header_level - current_level
