@@ -35,6 +35,8 @@ class FandomPage(object):
     self.language = language
 
     self.wiki = wiki
+
+    self.iggnore_elements = []
     try:
         self.__load(redirect=redirect, preload=preload)
     except AttributeError:
@@ -137,6 +139,17 @@ class FandomPage(object):
       self._html = request.text
 
     return self._html
+  
+  def set_ignore_elements(self, elements: list[dict]):
+    """
+    Set elements to be ignored in the content property.
+
+    :param elements: A list of dictionaries containing the elements to be ignored.
+    :type elements: list
+
+    :returns: :class:`None`
+    """
+    self.ignore_elements = elements
 
   @property
   def content(self):
@@ -199,6 +212,11 @@ class FandomPage(object):
       for box in nav_boxes:
         box.decompose()
 
+      # Remove elements that are to be ignored
+      for element in self.ignore_elements:
+        for e in page_content.find_all(**element):
+          e.decompose()
+
       content = {'title': self.title}
       level_tree = [content]
       current_level = 1
@@ -234,11 +252,18 @@ class FandomPage(object):
             section_text = ""
             current_level = header_level
           #elif next_node.name == 'div':
-          elif next_node.has_attr('class') and 'fandom-table' in next_node['class']: # Fandom Table
-            text = [row.split('\n') for row in next_node.get_text().split("\n\n")]
-            text = list(map(lambda x: ','.join(filter(len, x)), text))
-            text = '\n'.join(text)
-            section_text += "\n"+text
+          elif next_node.name == 'table': # Table handling
+            data = []
+            table_body = next_node.find('tbody')
+            rows = table_body.find_all('tr')
+            for row in rows:
+                cols = row.find_all('th') + row.find_all('td')
+                if not cols:
+                    continue
+                cols = [ele.get_text(separator=' ') for ele in cols]
+                data.append(','.join([ele for ele in cols if ele]))
+
+            section_text += "\n" + "\n".join(data)
           elif (not next_node.has_attr('class')) or (next_node['class'][0] != "printfooter"):
             section_text += "\n"+next_node.get_text()
         next_node = next_node.nextSibling
