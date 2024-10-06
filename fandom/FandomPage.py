@@ -217,12 +217,31 @@ class FandomPage(object):
         for e in page_content.find_all(**element):
           e.decompose()
 
+      tables = page_content.find_all('table')
+      for table in tables:
+        data = []
+        table_body = table.find('tbody')
+        if not table_body:
+          continue
+        rows = table_body.find_all('tr')
+        for row in rows:
+            cols = row.find_all('th') + row.find_all('td')
+            if not cols:
+                continue
+            cols = [ele.get_text(separator=' ') for ele in cols]
+            data.append(','.join([ele for ele in cols]))
+
+        # section_text += "\n" + "\n".join(data)
+        # table.decompose()
+        table.name = 'div'
+        table.string = "\n".join(data)
+
       content = {'title': self.title}
       level_tree = [content]
       current_level = 1
 
       next_node = page_content.contents[0]
-      while isinstance(next_node, NavigableString) or next_node.name in ["div", "figure", "table"]:
+      while next_node is not None and (isinstance(next_node, NavigableString) or next_node.name in ["div", "figure"]): # Skip until first header
         next_node = next_node.nextSibling
 
       section_text = ""
@@ -251,21 +270,21 @@ class FandomPage(object):
 
             section_text = ""
             current_level = header_level
-          #elif next_node.name == 'div':
-          elif next_node.name == 'table': # Table handling
-            data = []
-            table_body = next_node.find('tbody')
-            rows = table_body.find_all('tr')
-            for row in rows:
-                cols = row.find_all('th') + row.find_all('td')
-                if not cols:
-                    continue
-                cols = [ele.get_text(separator=' ') for ele in cols]
-                data.append(','.join([ele for ele in cols if ele]))
+          # elif next_node.name == 'div':
+          # elif next_node.name == 'table': # Table handling
+          #   data = []
+          #   table_body = next_node.find('tbody')
+          #   rows = table_body.find_all('tr')
+          #   for row in rows:
+          #       cols = row.find_all('th') + row.find_all('td')
+          #       if not cols:
+          #           continue
+          #       cols = [ele.get_text(separator=' ') for ele in cols]
+          #       data.append(','.join([ele for ele in cols if ele]))
 
-            section_text += "\n" + "\n".join(data)
+          #   section_text += "\n" + "\n".join(data)
           elif (not next_node.has_attr('class')) or (next_node['class'][0] != "printfooter"):
-            section_text += "\n"+next_node.get_text()
+            section_text += "\n"+next_node.get_text(separator=' ')
         next_node = next_node.nextSibling
 
       if infobox_content != "": content['infobox'] = infobox_content
