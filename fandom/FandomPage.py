@@ -224,7 +224,7 @@ class FandomPage(object):
 
                 colspan = int(col.get('colspan', 1))
                 rowspan = int(col.get('rowspan', 1))
-                col_data = col.get_text(strip=True)
+                col_data = process_element(col)
                 col_data = col_data.replace(',', '.')
                 col_data = re.sub(r'\n', ' ', col_data)
 
