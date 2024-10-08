@@ -26,7 +26,8 @@ class FandomPage(object):
   :ivar url: The url to the page
   """
 
-  def __init__(self, wiki, language, title=None, pageid=None, redirect=True, preload=False):
+  def __init__(self, wiki, language, title=None, pageid=None, 
+               redirect=True, preload=False, ignored_elements=[]):
     if title is None and pageid is None:
       raise ValueError("Either a title or a pageid must be specified")
 
@@ -36,7 +37,7 @@ class FandomPage(object):
 
     self.wiki = wiki
 
-    self.ignore_elements = []
+    self.ignored_elements = ignored_elements
     try:
         self.__load(redirect=redirect, preload=preload)
     except AttributeError:
@@ -140,7 +141,7 @@ class FandomPage(object):
 
     return self._html
   
-  def set_ignore_elements(self, elements: list[dict]):
+  def set_ignored_elements(self, elements: list[dict]):
     """
     Set elements to be ignored in the content property.
 
@@ -149,7 +150,7 @@ class FandomPage(object):
 
     :returns: :class:`None`
     """
-    self.ignore_elements = elements
+    self.ignored_elements = elements
 
   @property
   def content(self):
@@ -261,7 +262,7 @@ class FandomPage(object):
         box.decompose()
 
       # Remove elements that are to be ignored
-      for element in self.ignore_elements:
+      for element in self.ignored_elements:
         for e in page_content.find_all(**element):
           e.decompose()
 

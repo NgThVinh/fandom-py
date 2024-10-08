@@ -16,6 +16,8 @@ mimetypes.init()
 LANG = ""
 WIKI = ""
 
+IGNORED_ELEMENTS = []
+
 def default_url():
   wiki = WIKI+"." if WIKI != "" else ""
   language = LANG+"/" if LANG != "" else ""
@@ -43,6 +45,19 @@ def set_lang(language : str):
   """
   global LANG
   LANG = language.lower() if language else LANG
+
+  for cached_func in (search, summary):
+    cached_func.clear_cache()
+
+def set_ignored_elements(elements: list[dict]):
+  """
+  Sets the global IGNORED_ELEMENTS variable
+
+  :param elements: The elements to set as the global IGNORED_ELEMENTS variable
+  :type elements: list[dict]
+  """
+  global IGNORED_ELEMENTS
+  IGNORED_ELEMENTS = elements
 
   for cached_func in (search, summary):
     cached_func.clear_cache()
@@ -212,8 +227,8 @@ def page(title : str = "", pageid : int = -1, wiki : str = WIKI, language : str 
   language = language if language != "" else (LANG if LANG != "" else "en")
 
   if title != "":
-    return FandomPage(wiki, language, title=title, redirect=redirect, preload=preload)
+    return FandomPage(wiki, language, title=title, redirect=redirect, preload=preload, ignored_elements=IGNORED_ELEMENTS)
   elif pageid != -1:
-    return FandomPage(wiki, language, pageid=pageid, preload=preload)
+    return FandomPage(wiki, language, pageid=pageid, preload=preload, ignored_elements=IGNORED_ELEMENTS)
   else:
     raise ValueError("Either a title or a pageid must be specified")
