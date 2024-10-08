@@ -226,11 +226,11 @@ class FandomPage(object):
                 rowspan = int(col.get('rowspan', 1))
                 col_data = col.get_text(strip=True)
 
-                for i in range(row_i, row_i + rowspan):
-                    for j in range(col_i, col_i + colspan):
+                for i in range(row_i, min(row_i + rowspan, len(rows))):
+                    for j in range(col_i, min(col_i + colspan, max_columns)):
                         result[i][j] = col_data
 
-                col_i += colspan
+                col_i = min(col_i + colspan, max_columns)
 
         return result
 
