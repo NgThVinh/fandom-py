@@ -185,6 +185,54 @@ class FandomPage(object):
 
       return content
 
+    def process_element(element):
+      result = ""
+
+      for child in element.children:
+          if child.name:
+              if child.name == 'br':
+                  result += '\n' 
+              elif child.name == 'img':
+                  img_text = child.get('alt', child.get('src', ''))
+                  result += f"[Image: {img_text}]"
+              else:
+                  result += process_element(child)
+          else:
+              result += child.get_text()
+
+      return result
+
+    def extract_table(table_element):
+        rows = table_element.find_all('tr')
+        result = []
+
+        max_columns = 0
+        for row in rows:
+            cols = row.find_all(['td', 'th'])
+            current_columns = sum([int(col.get('colspan', 1)) for col in cols])
+            max_columns = max(max_columns, current_columns)
+
+        result = [[''] * max_columns for _ in range(len(rows))]
+
+        for row_i, row in enumerate(rows):
+            cols = row.find_all(['td', 'th'])
+            col_i = 0
+            for col in cols:
+                while result[row_i][col_i] != '':
+                    col_i += 1
+
+                colspan = int(col.get('colspan', 1))
+                rowspan = int(col.get('rowspan', 1))
+                col_data = col.get_text(strip=True)
+
+                for i in range(row_i, row_i + rowspan):
+                    for j in range(col_i, col_i + colspan):
+                        result[i][j] = col_data
+
+                col_i += colspan
+
+        return result
+
     if not getattr(self, '_content', False):
       html = self.html
       soup = BeautifulSoup(html, 'html.parser')
@@ -219,30 +267,16 @@ class FandomPage(object):
 
       tables = page_content.find_all('table')
       for table in tables:
-        data = []
-        table_body = table.find('tbody')
-        if not table_body:
-          continue
-        rows = table_body.find_all('tr')
-        for row in rows:
-            cols = row.find_all('th') + row.find_all('td')
-            if not cols:
-                continue
-            cols = [ele.get_text(separator=' ') for ele in cols]
-            data.append(','.join([ele for ele in cols]))
-
-        # section_text += "\n" + "\n".join(data)
-        # table.decompose()
-        table.name = 'div'
-        table.string = "\n".join(data)
+        extracted_tb = extract_table(table)
+        table.string = "\n".join(",".join(row) for row in extracted_tb)
 
       content = {'title': self.title}
       level_tree = [content]
       current_level = 1
 
       next_node = page_content.contents[0]
-      while next_node is not None and (isinstance(next_node, NavigableString) or next_node.name in ["div", "figure"]): # Skip until first header
-        next_node = next_node.nextSibling
+      # while next_node is not None and (isinstance(next_node, NavigableString) or next_node.name in ["div", "figure"]): # Skip until first header
+      #   next_node = next_node.nextSibling
 
       section_text = ""
       while True:
@@ -254,14 +288,21 @@ class FandomPage(object):
             level_tree[-1]['content'] = section_text
             header = next_node.text
             header_level = int(next_node.name[1])
+
             if header_level > current_level:
               level_dif = header_level - current_level
-              for _ in range(level_dif):
-                level_tree[-1]['sections'] = [{'title':header}]
-                level_tree.append(level_tree[-1]['sections'][0])
+              if level_dif > 1:
+                header_level = current_level + 1
+              level_tree[-1]['sections'] = [{'title':header}]
+              level_tree.append(level_tree[-1]['sections'][0])
+              # for _ in range(level_dif):
+              #   level_tree[-1]['sections'] = [{'title':header}]
+              #   level_tree.append(level_tree[-1]['sections'][0])
+
             elif header_level == current_level:
               level_tree[-2]['sections'].append({'title':header})
               level_tree[-1] = level_tree[-2]['sections'][-1]
+
             else:
               level_dif = header_level - current_level
               level_tree = level_tree[:level_dif]
@@ -271,20 +312,9 @@ class FandomPage(object):
             section_text = ""
             current_level = header_level
           # elif next_node.name == 'div':
-          # elif next_node.name == 'table': # Table handling
-          #   data = []
-          #   table_body = next_node.find('tbody')
-          #   rows = table_body.find_all('tr')
-          #   for row in rows:
-          #       cols = row.find_all('th') + row.find_all('td')
-          #       if not cols:
-          #           continue
-          #       cols = [ele.get_text(separator=' ') for ele in cols]
-          #       data.append(','.join([ele for ele in cols if ele]))
-
-          #   section_text += "\n" + "\n".join(data)
           elif (not next_node.has_attr('class')) or (next_node['class'][0] != "printfooter"):
-            section_text += "\n"+next_node.get_text(separator=' ')
+            # section_text += "\n"+next_node.get_text(separator=' ')
+            section_text += "\n" + process_element(next_node)
         next_node = next_node.nextSibling
 
       if infobox_content != "": content['infobox'] = infobox_content
