@@ -171,7 +171,7 @@ class FandomPage(object):
       for key in keys:
         if content[key] != "":
           content[key] = re.sub(u'\xa0', ' ', content[key])
-          content[key] = re.sub(r'\[.*?\]', '', content[key])
+          content[key] = re.sub(r'\[(?!Image: ).*?\]', '', content[key])
           content[key] = re.sub(' +', ' ', content[key])
           content[key] = re.sub('\n+', '\n', content[key])
           if content[key] == "\n":
@@ -196,6 +196,8 @@ class FandomPage(object):
               elif child.name == 'img':
                   img_text = child.get('alt', child.get('src', ''))
                   result += f"[Image: {img_text}]"
+              elif child.name == 'li':
+                  result += '\n* ' + process_element(child)
               else:
                   result += process_element(child)
           else:
@@ -204,36 +206,85 @@ class FandomPage(object):
       return result
 
     def extract_table(table_element) -> str:
+        # Get all the rows from the table element
         rows = table_element.find_all('tr')
+        
+        # Store the result in a list of lists to represent the table structure
         result = []
-
+        
+        # Create a temporary structure to track filled cells due to rowspan
+        span_map = []
         max_columns = 0
+
+        # Calculate the max number of columns accounting for rowspan and colspan
         for row in rows:
             cols = row.find_all(['td', 'th'])
-            current_columns = sum([int(col.get('colspan', 1)) for col in cols])
+            # Calculate how many columns this row will occupy
+            current_columns = 0
+            col_i = 0  # This keeps track of the current position in the row
+            
+            # Check for cells that are spanned from previous rows
+            while col_i < len(span_map) and span_map[col_i] > 0:
+                col_i += 1
+                current_columns += 1
+            
+            # Loop through all cells in the current row
+            for col in cols:
+                colspan = int(col.get('colspan', 1))
+                rowspan = int(col.get('rowspan', 1))
+                current_columns += colspan
+                
+                # Update the span map to track rowspans for subsequent rows
+                if rowspan > 1:
+                    for i in range(col_i, col_i + colspan):
+                        if len(span_map) <= i:
+                            span_map.append(rowspan - 1)
+                        else:
+                            span_map[i] = rowspan - 1
+                col_i += colspan
+            
+            # Adjust the length of span_map based on the number of columns in this row
+            while len(span_map) < current_columns:
+                span_map.append(0)
+            
             max_columns = max(max_columns, current_columns)
 
+        # Create a result matrix with the updated max column count
         result = [[''] * max_columns for _ in range(len(rows))]
+        
+        # Reset the span_map for actual content processing
+        span_map = [0] * max_columns
 
+        # Fill the result table, taking rowspan and colspan into account
         for row_i, row in enumerate(rows):
             cols = row.find_all(['td', 'th'])
             col_i = 0
+            
+            # Skip columns that are already filled due to rowspan
+            while col_i < max_columns and span_map[col_i] > 0:
+                span_map[col_i] -= 1
+                col_i += 1
+            
             for col in cols:
-                while result[row_i][col_i] != '':
-                    col_i += 1
-
                 colspan = int(col.get('colspan', 1))
                 rowspan = int(col.get('rowspan', 1))
                 col_data = process_element(col)
                 col_data = col_data.replace(',', '.')
                 col_data = re.sub(r'\n', ' ', col_data)
-
+                
+                # Fill the current cell and handle the colspan and rowspan
                 for i in range(row_i, min(row_i + rowspan, len(rows))):
                     for j in range(col_i, min(col_i + colspan, max_columns)):
                         result[i][j] = col_data
-
+                
+                # Update the span_map for the current column positions
+                for j in range(col_i, col_i + colspan):
+                    if rowspan > 1:
+                        span_map[j] = rowspan - 1
+                
                 col_i = min(col_i + colspan, max_columns)
-
+        
+        # Step 6: Convert the result to CSV format
         result = "\n".join(",".join(row) for row in result)
         return result
 
