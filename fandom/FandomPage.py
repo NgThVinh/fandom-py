@@ -186,7 +186,7 @@ class FandomPage(object):
 
       return content
 
-    def process_element(element):
+    def process_element(element) -> str:
       result = ""
 
       for child in element.children:
@@ -203,7 +203,7 @@ class FandomPage(object):
 
       return result
 
-    def extract_table(table_element):
+    def extract_table(table_element) -> str:
         rows = table_element.find_all('tr')
         result = []
 
@@ -225,6 +225,8 @@ class FandomPage(object):
                 colspan = int(col.get('colspan', 1))
                 rowspan = int(col.get('rowspan', 1))
                 col_data = col.get_text(strip=True)
+                col_data = col_data.replace(',', '.')
+                col_data = re.sub(r'\n', ' ', col_data)
 
                 for i in range(row_i, min(row_i + rowspan, len(rows))):
                     for j in range(col_i, min(col_i + colspan, max_columns)):
@@ -232,6 +234,7 @@ class FandomPage(object):
 
                 col_i = min(col_i + colspan, max_columns)
 
+        result = "\n".join(",".join(row) for row in result)
         return result
 
     if not getattr(self, '_content', False):
@@ -268,8 +271,7 @@ class FandomPage(object):
 
       tables = page_content.find_all('table')
       for table in tables:
-        extracted_tb = extract_table(table)
-        table.string = "\n".join(",".join(row) for row in extracted_tb)
+        table.string = extract_table(table)
 
       content = {'title': self.title}
       level_tree = [content]
